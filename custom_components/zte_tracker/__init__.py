@@ -97,8 +97,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Set up all platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Register all services
-    setup_services(hass)
+    # Register services (once per domain, not per entry)
+    if not hass.services.has_service(DOMAIN, "reboot"):
+        setup_services(hass)
 
     # Register an update listener to apply option changes at runtime
     async def _async_options_updated(
