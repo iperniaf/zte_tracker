@@ -1,12 +1,12 @@
 """Button platform for ZTE Tracker to reboot the router."""
 from __future__ import annotations
 
-from typing import Any
 import logging
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -51,6 +51,12 @@ class ZteRebootButton(CoordinatorEntity, ButtonEntity):
         try:
             success = await self.coordinator.async_reboot_router()
             if not success:
-                _LOGGER.error("Router reboot failed for host: %s", host)
+                raise HomeAssistantError(
+                    f"Router reboot failed for host: {host}"
+                )
+        except HomeAssistantError:
+            raise
         except Exception as exc:  # pragma: no cover - defensive logging
-            _LOGGER.exception("Exception while rebooting router %s: %s", host, exc)
+            raise HomeAssistantError(
+                f"Exception while rebooting router {host}: {exc}"
+            ) from exc

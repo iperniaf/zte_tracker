@@ -24,8 +24,10 @@ from urllib3.util.retry import Retry
 
 from ..const import DEFAULT_QUERY_ROUTER_DETAILS, DEFAULT_QUERY_WAN_STATUS
 
-# Suppress InsecureRequestWarning globally
-warnings.simplefilter("ignore", InsecureRequestWarning)
+# Suppress InsecureRequestWarning only from urllib3 (not globally)
+warnings.filterwarnings(
+    "ignore", category=InsecureRequestWarning, module=r"urllib3\.connectionpool"
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -718,20 +720,23 @@ class zteClient:
             _LOGGER.warning(f"Failed to fetch WAN status: {ex}")
         return wan_attrs
 
+    _SENSITIVE_HEADERS = frozenset({"cookie", "authorization", "set-cookie"})
+
     def log_request(self, r):
-        # Get cookie value for debugging.
+        """Log request details, filtering sensitive headers."""
         if not r or not r.request:
             return
-        # sid = self.session.cookies.get('SID_HTTPS_')
-
+        safe_headers = {
+            k: v
+            for k, v in r.request.headers.items()
+            if k.lower() not in self._SENSITIVE_HEADERS
+        }
         _LOGGER.debug(
             "Request %d URL: %s Headers: %s",
             r.status_code,
             r.request.url,
-            dict(r.request.headers),
+            safe_headers,
         )
-        # Don't log response content in debug to avoid potential security issues
-        # _LOGGER.debug("Response status: %d", r.status_code)
 
     def parse_devices(
         self,

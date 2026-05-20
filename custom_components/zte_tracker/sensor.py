@@ -44,7 +44,6 @@ class ZteBaseSensor(CoordinatorEntity, SensorEntity):
             name=f"ZTE Router {coordinator.client.host}",
             manufacturer="ZTE",
             model=coordinator.client.model,
-            sw_version=coordinator.client.model,
         )
 
 
@@ -70,9 +69,8 @@ class ZteRouterSensor(ZteBaseSensor):
         """Return the state attributes."""
         data = self.coordinator.data or {}
         router_info = data.get("router_info", {})
-        # Get local time in local timezone.
-        router_info["last_update"] = ha_dt.now().isoformat()
-        return router_info
+        # Return a copy to avoid mutating shared coordinator.data
+        return {**router_info, "last_update": ha_dt.now().isoformat()}
 
 
 class ZteDeviceCountSensor(ZteBaseSensor):

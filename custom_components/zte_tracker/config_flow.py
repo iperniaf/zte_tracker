@@ -196,8 +196,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     # Check if already configured
                     await self.async_set_unique_id(user_input[CONF_HOST])
                     self._abort_if_unique_id_configured()
-                    # Optionally, add statusmsg to entry data for diagnostics
-                    user_input["statusmsg"] = info.get("statusmsg", "")
                     return self.async_create_entry(title=info["title"], data=user_input)
 
         defaults = user_input or {}

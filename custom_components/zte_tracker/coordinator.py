@@ -447,7 +447,7 @@ class ZteDataCoordinator(DataUpdateCoordinator):
 
                     return devices, wanstatus, routerdetails, True
                 except Exception as ex:
-                    _LOGGER.debug("Fetch attempt error: %s", ex)
+                    _LOGGER.debug("Fetch attempt error: %s", ex, exc_info=True)
                     return None, None, None, False
 
             devices, wanstatus, routerdetails, ok = _attempt()
