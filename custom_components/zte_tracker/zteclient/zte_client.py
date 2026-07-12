@@ -91,9 +91,16 @@ _MODELS["E2631"] = _MODELS["E2631"]
 _MODELS["SR7410"] = _MODELS["E2631"]
 _MODELS["SR7110"] = _MODELS["E2631"]
 _MODELS["F680"] = _MODELS["F6640"]
-# ZTE F8748 (GPON ONT). Confirmed working on a DIGI Portugal unit, fw V3.0.10P2N4.
-# Uses the same web-console endpoints as the F6640 family.
-_MODELS["F8748"] = _MODELS["F6640"]
+# ZTE F8748 (GPON ONT) - DIGI Portugal ISP unit, firmware V3.0.10P2N4.
+# Defined as a distinct model (not a plain F6640 alias): it shares the F6640
+# web-console endpoints, but this firmware also exposes WAN traffic counters
+# (RxBytes/TxBytes/packets/errors) in wan_internetstatus_lua.lua. The
+# "parse_wan_traffic" flag enables extracting those without assuming other
+# F6640-family routers populate the same fields.
+_MODELS["F8748"] = {
+    **_MODELS["F6640"],
+    "parse_wan_traffic": True,
+}
 
 
 class zteClient:
@@ -719,6 +726,30 @@ class zteClient:
                         wan_attrs["WAN_remain_leasetime"] = int(pvalue)
                     elif pname == "ConnStatus":
                         wan_attrs["WAN_connected"] = pvalue == "Connected"
+            # WAN traffic counters. Model-gated: only enabled for firmwares
+            # confirmed (via web-console capture) to expose these fields, since
+            # other F6640-family routers may not populate them. On the F8748 the
+            # counters live on the routed/PPPoE instance, which may differ from
+            # the status instance above, so scan all instances.
+            if self.paths.get("parse_wan_traffic"):
+                traffic_map = {
+                    "RxBytes": "WAN_rx_bytes",
+                    "TxBytes": "WAN_tx_bytes",
+                    "RxPackets": "WAN_rx_packets",
+                    "TxPackets": "WAN_tx_packets",
+                    "ErrorsReceived": "WAN_rx_errors",
+                    "ErrorsSent": "WAN_tx_errors",
+                }
+                for inst in instances:
+                    for i in range(0, len(inst) // 2):
+                        pn = inst[i * 2].text
+                        pv = inst[i * 2 + 1].text
+                        if (
+                            pn in traffic_map
+                            and pv is not None
+                            and pv.strip().lstrip("-").isdigit()
+                        ):
+                            wan_attrs[traffic_map[pn]] = int(pv)
         except Exception as ex:
             _LOGGER.warning(f"Failed to fetch WAN status: {ex}")
         return wan_attrs
