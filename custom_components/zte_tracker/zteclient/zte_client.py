@@ -91,6 +91,9 @@ _MODELS["E2631"] = _MODELS["E2631"]
 _MODELS["SR7410"] = _MODELS["E2631"]
 _MODELS["SR7110"] = _MODELS["E2631"]
 _MODELS["F680"] = _MODELS["F6640"]
+# ZTE F8748 (GPON ONT). Confirmed working on a DIGI Portugal unit, fw V3.0.10P2N4.
+# Uses the same web-console endpoints as the F6640 family.
+_MODELS["F8748"] = _MODELS["F6640"]
 
 
 class zteClient:

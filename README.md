@@ -153,6 +153,7 @@ For ZTE mesh networks (e.g. F6600P Controller + H196A Agent), enable **Mesh topo
 | ZTE F6645P    |     F6645P      |    ✅    |
 | ZTE F680    |      F680      |    ✅    |
 | ZTE F6600P  |     F6600P      |    ✅    |
+| ZTE F8748   |      F8748      |    ✅    |
 | ZTE H169A     |      H169A      |    ✅    |
 | ZTE H2640     |      H2640      |    ✅    |
 | ZTE H288A     |      H288A      |    ✅    |
@@ -164,6 +165,8 @@ For ZTE mesh networks (e.g. F6600P Controller + H196A Agent), enable **Mesh topo
 | ZTE SR7410 (ZTE BE7200 Pro+)   |      SR7410      |    ✅    |
 
 > **Note**: This integration may work with additional ZTE router models. Try one of the above parameter values to test compatibility.
+
+> **F8748 note**: Verified on a unit provided by **DIGI Portugal** (firmware `V3.0.10P2N4`, hardware `V3.0.03`). It uses the same web-console endpoints as the F6640 family, so the `F6640` logic works unchanged. DIGI units in other countries (e.g. Spain, Romania) are likely to behave the same. This is an ISP-locked GPON ONT; F8748 units from other providers or bought retail may expose additional pages/data, which we were not able to confirm.
 
 ## 🚀 Installation
 
