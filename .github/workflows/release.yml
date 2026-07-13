@@ -80,13 +80,21 @@ jobs:
           [ -z "$BODY" ] && BODY="No changes since last release"
           TAG_MSG=$(git show -s --format=%B "${TAG}" 2>/dev/null || true)
           if [ -n "$TAG_MSG" ]; then
-            # Emit real newlines into GITHUB_OUTPUT using printf
-            printf "body<<EOF\nRelease contents: %s\n\nChanges in this release:\n\n%s\nEOF\n" "$TAG_MSG" "$BODY" >> $GITHUB_OUTPUT
+            RELEASE_BODY=$(printf "Release contents: %s\n\nChanges in this release:\n\n%s" "$TAG_MSG" "$BODY")
           else
-            printf "body<<EOF\nChanges in this release:\n\n%s\nEOF\n" "$BODY" >> $GITHUB_OUTPUT
+            RELEASE_BODY=$(printf "Changes in this release:\n\n%s" "$BODY")
           fi
+
+          # Prepend CHANGELOG content only if the file changed since the previous release tag.
+          if [ -n "$PREV_TAG" ] && ! git diff --quiet "${PREV_TAG}..${TAG}" -- CHANGELOG.md; then
+            CHANGELOG_CONTENT=$(cat CHANGELOG.md)
+            if [ -n "$CHANGELOG_CONTENT" ]; then
+              RELEASE_BODY=$(printf "CHANGELOG.md\n\n%s\n\n---\n\n%s" "$CHANGELOG_CONTENT" "$RELEASE_BODY")
+            fi
+          fi
+
           echo "body<<EOF" >> $GITHUB_OUTPUT
-          printf "%s\n\n%s\n" "${HEADER}" "${BODY}" >> $GITHUB_OUTPUT
+          printf "%s\n" "$RELEASE_BODY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Debug changelog output
