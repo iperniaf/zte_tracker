@@ -153,6 +153,7 @@ For ZTE mesh networks (e.g. F6600P Controller + H196A Agent), enable **Mesh topo
 | ZTE F6645P    |     F6645P      |    ✅    |
 | ZTE F680    |      F680      |    ✅    |
 | ZTE F6600P  |     F6600P      |    ✅    |
+| ZTE F8748   |      F8748      |    ✅    |
 | ZTE H169A     |      H169A      |    ✅    |
 | ZTE H2640     |      H2640      |    ✅    |
 | ZTE H288A     |      H288A      |    ✅    |
@@ -164,6 +165,8 @@ For ZTE mesh networks (e.g. F6600P Controller + H196A Agent), enable **Mesh topo
 | ZTE SR7410 (ZTE BE7200 Pro+)   |      SR7410      |    ✅    |
 
 > **Note**: This integration may work with additional ZTE router models. Try one of the above parameter values to test compatibility.
+
+> **F8748 note**: Verified on a unit provided by **DIGI Portugal** (firmware `V3.0.10P2N4`, hardware `V3.0.03`). It shares the F6640 web-console endpoints, and is defined as a distinct model because this firmware additionally exposes **WAN traffic counters** in `wan_internetstatus_lua.lua`. When the model is `F8748`, the integration parses those into extra router-status attributes: `WAN_rx_bytes`, `WAN_tx_bytes`, `WAN_rx_packets`, `WAN_tx_packets`, `WAN_rx_errors`, `WAN_tx_errors`. This is gated to `F8748` so other F6640-family routers are unaffected (we could not confirm they populate the same fields). DIGI units in other countries (e.g. Spain, Romania) are likely identical; F8748 units from other providers or bought retail may expose additional pages/data we could not confirm.
 
 ## 🚀 Installation
 
