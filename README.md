@@ -7,12 +7,17 @@
 
 
 ![GitHub contributors](https://img.shields.io/github/contributors/juacas/zte_tracker)
-![Maintenance](https://img.shields.io/maintenance/yes/2025)
+![Maintenance](https://img.shields.io/maintenance/yes/2026)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/y/juacas/zte_tracker)
 ![GitHub commits since tagged version](https://img.shields.io/github/commits-since/juacas/zte_tracker/v1.0.0)
 ![GitHub last commit](https://img.shields.io/github/last-commit/juacas/zte_tracker)
 ![installation_badge](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.zte_tracker.total)
-
+> [!WARNING]
+> **Looking for a new maintainer!**
+>
+> Due to a recent change in my network infrastructure, I no longer use a ZTE router. Because I do not have the hardware to test changes, I can no longer actively maintain or develop this integration.
+>
+> If you are a developer using this integration and would like to step in as a collaborator to keep it alive, please drop a comment in [Issue #76 - Looking for maintainer](https://github.com/juacas/zte_tracker/issues/76).
 # ZTE Router Integration for Home Assistant
 
 A modern, feature-rich integration for ZTE routers that provides comprehensive device tracking and router management capabilities for Home Assistant.
