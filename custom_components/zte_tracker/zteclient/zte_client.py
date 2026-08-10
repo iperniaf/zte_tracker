@@ -508,8 +508,18 @@ class zteClient:
         response.raise_for_status()
         xml = ET.fromstring(response.content)
 
-        error_id = xml.findtext("IF_ERRORID")
-        error_param = xml.findtext("IF_ERRORPARAM")
+        def local_name(tag: str) -> str:
+            """Return an XML tag name without an optional namespace."""
+            return tag.rsplit("}", 1)[-1]
+
+        def first_text(name: str) -> str | None:
+            for element in xml.iter():
+                if local_name(element.tag) == name:
+                    return element.text
+            return None
+
+        error_id = first_text("IF_ERRORID")
+        error_param = first_text("IF_ERRORPARAM")
         if error_id not in (None, "0") or error_param not in (
             None, "SUCC", "SUCCESS", "OK"
         ):
@@ -517,17 +527,28 @@ class zteClient:
 
         def parse_instances(element_name: str) -> dict[str, dict[str, str]]:
             result: dict[str, dict[str, str]] = {}
-            for instance in xml.findall(f"{element_name}/Instance"):
-                fields: dict[str, str] = {}
-                children = list(instance)
-                for index in range(0, len(children) - 1, 2):
-                    name = children[index].text
-                    value = children[index + 1].text
-                    if name:
-                        fields[name] = value or ""
-                instance_id = fields.get("_InstID")
-                if instance_id:
-                    result[instance_id] = fields
+            containers = (
+                element
+                for element in xml.iter()
+                if local_name(element.tag) == element_name
+            )
+            for container in containers:
+                instances = (
+                    element
+                    for element in container
+                    if local_name(element.tag) == "Instance"
+                )
+                for instance in instances:
+                    fields: dict[str, str] = {}
+                    children = list(instance)
+                    for index in range(0, len(children) - 1, 2):
+                        name = children[index].text
+                        value = children[index + 1].text
+                        if name:
+                            fields[local_name(name)] = value or ""
+                    instance_id = fields.get("_InstID")
+                    if instance_id:
+                        result[instance_id] = fields
             return result
 
         radios = parse_instances("OBJ_WLANSETTING_ID")
@@ -548,6 +569,12 @@ class zteClient:
                     "has_psk": bool(psk_configs.get(psk_id, {}).get("KeyPassphrase")),
                     "fields": fields,
                 }
+            )
+        if not aps:
+            _LOGGER.debug(
+                "WLAN response XML structure: root=%s children=%s",
+                local_name(xml.tag),
+                [local_name(child.tag) for child in xml],
             )
         _LOGGER.debug("Discovered %d WLAN access points", len(aps))
         return aps
