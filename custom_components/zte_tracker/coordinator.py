@@ -368,14 +368,14 @@ class ZteDataCoordinator(DataUpdateCoordinator):
                     return None, None, None, None
 
                 devices = self.client.get_devices_response()
-                wanstatus = self.client.get_wan_status()
-                routerdetails = self.client.get_router_details()
                 wifi = (
                     self.client.get_wifi_configuration()
                     if isinstance(self.client.paths, dict)
                     and self.client.paths.get("wlan_config_script")
                     else []
                 )
+                wanstatus = self.client.get_wan_status()
+                routerdetails = self.client.get_router_details()
 
                 # Mesh topology enrichment (before logout!)
                 if devices is not None and self._mesh_topology:
@@ -472,14 +472,14 @@ class ZteDataCoordinator(DataUpdateCoordinator):
                         )
                         return None, None, None, None, False
 
-                    wanstatus = self.client.get_wan_status()
-                    routerdetails = self.client.get_router_details()
                     wifi = (
                         self.client.get_wifi_configuration()
                         if isinstance(self.client.paths, dict)
                         and self.client.paths.get("wlan_config_script")
                         else []
                     )
+                    wanstatus = self.client.get_wan_status()
+                    routerdetails = self.client.get_router_details()
 
                     # Mesh topology enrichment (session still alive)
                     if devices is not None and self._mesh_topology:

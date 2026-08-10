@@ -830,6 +830,10 @@ class zteClient:
 
     def get_wan_status(self) -> dict[str, Any]:
         """Fetch WAN status and return relevant attributes."""
+        if self.model == "H3640":
+            # The H3640 firmware returns SessionTimeout for the legacy WAN
+            # status endpoint even though login and WLAN endpoints work.
+            return {}
         if not getattr(self, "query_wan_status", True):
             _LOGGER.debug("WAN status query disabled by client flag")
             return {}
