@@ -497,7 +497,7 @@ class zteClient:
 
         url = (
             f"{self.base_url}/?_type={self.paths['type_main_request']}"
-            f"&_tag={script}&_={self.get_guid()}"
+            f"&_tag={script}"
         )
         response = self.session.get(
             url, verify=self.verify_ssl, timeout=10,
@@ -548,6 +548,7 @@ class zteClient:
                     "fields": fields,
                 }
             )
+        _LOGGER.debug("Discovered %d WLAN access points", len(aps))
         return aps
 
     def _get_public_key_pem(self) -> str:
