@@ -91,6 +91,8 @@ _MODELS["H6645P"] = _MODELS["H288A"]
 _MODELS["H3640"] = {
     **_MODELS["H288A"],
     "wlan_config_script": "wlan_sssidconf_lua.lua",
+    "wlan_config_view": "wlanBasic",
+    "wlan_basic_script": "wlan_basiconoff_lua.lua",
     "default_scheme": "http",
 }
 _MODELS["E2631"] = _MODELS["E2631"]
@@ -520,6 +522,29 @@ class zteClient:
             "X-Requested-With": "XMLHttpRequest",
             "Referer": f"{self.base_url}/",
         }
+
+        view = self.paths.get("wlan_config_view")
+        if view:
+            self.session.get(
+                f"{self.base_url}/?_type={self.paths['type_first_request']}"
+                f"&_tag={view}&Menu3Location=0&_={self.get_guid()}",
+                verify=self.verify_ssl,
+                timeout=10,
+                headers={
+                    **wlan_headers,
+                    "Accept": "text/html, */*; q=0.01",
+                },
+            )
+
+        basic_script = self.paths.get("wlan_basic_script")
+        if basic_script:
+            self.session.get(
+                f"{self.base_url}/?_type={self.paths['type_main_request']}"
+                f"&_tag={basic_script}&_={self.get_guid()}",
+                verify=self.verify_ssl,
+                timeout=10,
+                headers=wlan_headers,
+            )
 
         def fetch_wlan() -> requests.Response:
             url = (
