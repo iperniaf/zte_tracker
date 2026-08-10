@@ -27,6 +27,14 @@ async def async_setup_entry(
         ]
     )
 
+    # The first coordinator refresh can complete before the platform is
+    # forwarded on some HA versions. Ensure WLAN discovery has run once before
+    # creating the dynamically discovered entities.
+    if coordinator.client.model == "H3640" and not (
+        (coordinator.data or {}).get("wifi")
+    ):
+        await coordinator.async_request_refresh()
+
     added_wifi_ids: set[str] = set()
 
     def add_wifi_entities() -> None:
