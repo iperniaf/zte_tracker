@@ -91,6 +91,7 @@ _MODELS["H6645P"] = _MODELS["H288A"]
 _MODELS["H3640"] = {
     **_MODELS["H288A"],
     "wlan_config_script": "wlan_sssidconf_lua.lua",
+    "wlan_config_view": "wlanSSIDConf",
     "default_scheme": "http",
 }
 _MODELS["E2631"] = _MODELS["E2631"]
@@ -495,6 +496,16 @@ class zteClient:
         script = self.paths.get("wlan_config_script")
         if not script:
             raise ValueError(f"WLAN configuration is not supported for {self.model}")
+
+        view = self.paths.get("wlan_config_view")
+        if view:
+            self.session.get(
+                f"{self.base_url}/?_type={self.paths['type_first_request']}"
+                f"&_tag={view}&Menu3Location=0&_={self.get_guid()}",
+                verify=self.verify_ssl,
+                timeout=10,
+                headers={"X-Requested-With": "XMLHttpRequest"},
+            )
 
         url = (
             f"{self.base_url}/?_type={self.paths['type_main_request']}"
