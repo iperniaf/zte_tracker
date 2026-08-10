@@ -572,9 +572,14 @@ class zteClient:
             )
         if not aps:
             _LOGGER.debug(
-                "WLAN response XML structure: root=%s children=%s",
+                "WLAN response XML structure: root=%s children=%s status=%s",
                 local_name(xml.tag),
                 [local_name(child.tag) for child in xml],
+                {
+                    name: first_text(name)
+                    for name in ("IF_ERRORSTR", "IF_ERRORPARAM", "IF_ERRORTYPE", "IF_ERRORID")
+                    if first_text(name) is not None
+                },
             )
         _LOGGER.debug("Discovered %d WLAN access points", len(aps))
         return aps
