@@ -188,11 +188,12 @@ class zteClient:
             }
         )
 
-        if self.mesh_topology:
-            # Mesh topology requires browser-like session initialization:
+        if self.mesh_topology or self.model == "H3640":
+            # H3640 and mesh topology require browser-like session
+            # initialization even when the regular tracker endpoints work:
             # 1. Page load to set cookies (_TESTCOOKIESUPPORT / SID)
             # 2. XHR headers for subsequent API calls
-            # Without this, topology endpoint returns SessionTimeout.
+            # Without this, authenticated endpoints can return SessionTimeout.
             try:
                 self.session.get(
                     f"{self.base_url}/", verify=self.verify_ssl, timeout=10
@@ -304,7 +305,7 @@ class zteClient:
             # Handle refresh requirement
             if self.login_data.get("login_need_refresh") == 1:
                 _LOGGER.debug("Login refresh required")
-                if self.mesh_topology:
+                if self.mesh_topology or self.model == "H3640":
                     try:
                         self.session.get(
                             f"{self.base_url}/",
