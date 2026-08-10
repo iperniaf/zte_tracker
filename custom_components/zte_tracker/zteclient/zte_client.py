@@ -324,6 +324,10 @@ class zteClient:
                             "Referer": f"{self.base_url}/",
                         }
                     )
+                    if self.model == "H3640":
+                        # The browser fetches login_entry again after the page
+                        # reload, refreshing the token used by menuData calls.
+                        self.get_session_token()
             # Check for error messaging.
             if self.login_data.get("lockingTime", 0) == -1:
                 self.statusmsg = f"Router is locked: {self.login_data.get('loginErrMsg', 'Unknown error')}"
