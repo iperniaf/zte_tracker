@@ -510,14 +510,47 @@ class zteClient:
         if not script:
             raise ValueError(f"WLAN configuration is not supported for {self.model}")
 
-        url = (
-            f"{self.base_url}/?_type={self.paths['type_main_request']}"
-            f"&_tag={script}&_={self.get_guid()}"
-        )
-        response = self.session.get(
-            url, verify=self.verify_ssl, timeout=10,
-            headers={"X-Requested-With": "XMLHttpRequest"},
-        )
+        wlan_headers = {
+            "Accept": "application/xml, text/xml, */*; q=0.01",
+            "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+            "Connection": "keep-alive",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 "
+            "Safari/537.36",
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": f"{self.base_url}/",
+        }
+
+        def fetch_wlan() -> requests.Response:
+            url = (
+                f"{self.base_url}/?_type={self.paths['type_main_request']}"
+                f"&_tag={script}&_={self.get_guid()}"
+            )
+            return self.session.get(
+                url,
+                verify=self.verify_ssl,
+                timeout=10,
+                headers=wlan_headers,
+            )
+
+        response = fetch_wlan()
+        if b"SessionTimeout" in response.content:
+            # Some H3640 firmware expires the menu session immediately after
+            # login refresh. Reproduce one browser-style reload and retry.
+            self.session.get(
+                f"{self.base_url}/",
+                verify=self.verify_ssl,
+                timeout=10,
+                headers={"X-Requested-With": None, "Referer": None},
+            )
+            self.session.headers.update(
+                {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Referer": f"{self.base_url}/",
+                }
+            )
+            self.get_session_token()
+            response = fetch_wlan()
         self.log_request(response)
         response.raise_for_status()
         xml = ET.fromstring(response.content)
