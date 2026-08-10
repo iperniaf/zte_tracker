@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime
-from os import error
 
 """ZTE router client with improved security and error handling."""
 
@@ -11,10 +10,11 @@ import json
 import logging
 import time
 from typing import Any
+from urllib.parse import urlencode
 import warnings
 import xml.etree.ElementTree as ET
 
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 import requests
 from requests import Session
@@ -86,7 +86,13 @@ _MODELS["F6645P"] = _MODELS["F6640"]
 _MODELS["F6600P"] = _MODELS["F6640"]
 _MODELS["H3600P"] = _MODELS["H288A"]
 _MODELS["H6645P"] = _MODELS["H288A"]
-_MODELS["H3640"] = _MODELS["H288A"]
+# H3640 uses the same device-tracking endpoints as H288A, but exposes the
+# WLAN configuration endpoint over HTTP.
+_MODELS["H3640"] = {
+    **_MODELS["H288A"],
+    "wlan_config_script": "wlan_sssidconf_lua.lua",
+    "default_scheme": "http",
+}
 _MODELS["E2631"] = _MODELS["E2631"]
 _MODELS["SR7410"] = _MODELS["E2631"]
 _MODELS["SR7110"] = _MODELS["E2631"]
@@ -101,6 +107,18 @@ _MODELS["F8748"] = {
     **_MODELS["F6640"],
     "parse_wan_traffic": True,
 }
+
+_DEFAULT_PUBLIC_KEY_PEM = (
+    "-----BEGIN PUBLIC KEY-----\n"
+    "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAodPTerkUVCYmv28SOfRV\n"
+    "7UKHVujx/HjCUTAWy9l0L5H0JV0LfDudTdMNPEKloZsNam3YrtEnq6jqMLJV4ASb\n"
+    "1d6axmIgJ636wyTUS99gj4BKs6bQSTUSE8h/QkUYv4gEIt3saMS0pZpd90y6+B/9\n"
+    "hZxZE/RKU8e+zgRqp1/762TB7vcjtjOwXRDEL0w71Jk9i8VUQ59MR1Uj5E8X3WIc\n"
+    "fYSK5RWBkMhfaTRM6ozS9Bqhi40xlSOb3GBxCmliCifOJNLoO9kFoWgAIw5hkSIb\n"
+    "GH+4Csop9Uy8VvmmB+B3ubFLN35qIa5OG5+SDXn4L7FeAA5lRiGxRi8tsWrtew8w\n"
+    "nwIDAQAB\n"
+    "-----END PUBLIC KEY-----"
+)
 
 
 class zteClient:
@@ -463,6 +481,137 @@ class zteClient:
             _LOGGER.error(self.statusmsg)
             return None
 
+    def get_wifi_configuration(self) -> list[dict[str, Any]]:
+        """Return the dynamically discovered WLAN access points.
+
+        The H3640 returns AP, radio and PSK objects in one XML document.  Keep
+        the AP fields intact because the same response is also the source of
+        truth after a write operation.
+        """
+        if not self.session:
+            raise RuntimeError("Session not initialized")
+
+        script = self.paths.get("wlan_config_script")
+        if not script:
+            raise ValueError(f"WLAN configuration is not supported for {self.model}")
+
+        url = (
+            f"{self.base_url}/?_type={self.paths['type_main_request']}"
+            f"&_tag={script}&_={self.get_guid()}"
+        )
+        response = self.session.get(
+            url, verify=self.verify_ssl, timeout=10,
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+        self.log_request(response)
+        response.raise_for_status()
+        xml = ET.fromstring(response.content)
+
+        error_id = xml.findtext("IF_ERRORID")
+        error_param = xml.findtext("IF_ERRORPARAM")
+        if error_id not in (None, "0") or error_param not in (
+            None, "SUCC", "SUCCESS", "OK"
+        ):
+            raise ValueError("Router rejected the WLAN configuration request")
+
+        def parse_instances(element_name: str) -> dict[str, dict[str, str]]:
+            result: dict[str, dict[str, str]] = {}
+            for instance in xml.findall(f"{element_name}/Instance"):
+                fields: dict[str, str] = {}
+                children = list(instance)
+                for index in range(0, len(children) - 1, 2):
+                    name = children[index].text
+                    value = children[index + 1].text
+                    if name:
+                        fields[name] = value or ""
+                instance_id = fields.get("_InstID")
+                if instance_id:
+                    result[instance_id] = fields
+            return result
+
+        radios = parse_instances("OBJ_WLANSETTING_ID")
+        psk_configs = parse_instances("OBJ_WLANPSK_ID")
+        aps: list[dict[str, Any]] = []
+        for ap_id, fields in parse_instances("OBJ_WLANAP_ID").items():
+            radio_id = fields.get("WLANViewName", "")
+            psk_id = f"{ap_id}.PSK1"
+            aps.append(
+                {
+                    "ap_id": ap_id,
+                    "enabled": fields.get("Enable") == "1",
+                    "ssid": fields.get("ESSID", ""),
+                    "alias": fields.get("Alias", ""),
+                    "band": radios.get(radio_id, {}).get("Band", ""),
+                    "radio_id": radio_id,
+                    "psk_id": psk_id,
+                    "has_psk": bool(psk_configs.get(psk_id, {}).get("KeyPassphrase")),
+                    "fields": fields,
+                }
+            )
+        return aps
+
+    def _get_public_key_pem(self) -> str:
+        """Return the public key used by the router request checker."""
+        # The H3640 uses the standard 2048-bit key shared by this firmware
+        # family.  The private key is never present in the integration.
+        return _DEFAULT_PUBLIC_KEY_PEM
+
+    def _make_check_header(self, post_data: str) -> str:
+        """Sign the exact URL-encoded request body expected by ZTE."""
+        digest = hashlib.sha256(post_data.encode("utf-8")).hexdigest()
+        public_key = serialization.load_pem_public_key(
+            self._get_public_key_pem().encode("utf-8")
+        )
+        encrypted_digest = public_key.encrypt(
+            digest.encode("utf-8"), padding.PKCS1v15()
+        )
+        return base64.b64encode(encrypted_digest).decode("ascii")
+
+    def set_wifi_enabled(self, ap_id: str, enabled: bool) -> list[dict[str, Any]]:
+        """Enable or disable one WLAN AP and return the refreshed state."""
+        if not self.login():
+            raise ConnectionError(self.statusmsg or "Router login failed")
+
+        current = self.get_wifi_configuration()
+        ap = next((item for item in current if item["ap_id"] == ap_id), None)
+        if ap is None:
+            raise ValueError(f"Unknown WLAN access point: {ap_id}")
+
+        session_token = self.get_session_token()
+        post_data = urlencode(
+            [
+                ("IF_ACTION", "Apply"),
+                ("Enable", "1" if enabled else "0"),
+                ("_InstID", ap_id),
+                ("_sessionTOKEN", session_token),
+            ]
+        )
+        response = self.session.post(
+            f"{self.base_url}/?_type={self.paths['type_main_request']}"
+            f"&_tag={self.paths['wlan_config_script']}",
+            data=post_data,
+            headers={
+                "Accept": "application/xml, text/xml, */*; q=0.01",
+                "Check": self._make_check_header(post_data),
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "Origin": self.base_url,
+                "Referer": f"{self.base_url}/",
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            verify=self.verify_ssl,
+            timeout=10,
+        )
+        self.log_request(response)
+        response.raise_for_status()
+        result = ET.fromstring(response.content)
+        if result.findtext("IF_ERRORID") != "0" or result.findtext(
+            "IF_ERRORPARAM"
+        ) != "SUCC":
+            raise ValueError("Router rejected the WLAN change")
+
+        # Do not report the requested value until the router confirms it.
+        return self.get_wifi_configuration()
+
     def _try_topology(self) -> list[dict[str, Any]] | None:
         """Fetch all devices via the mesh topology endpoint.
 
@@ -754,7 +903,9 @@ class zteClient:
             _LOGGER.warning(f"Failed to fetch WAN status: {ex}")
         return wan_attrs
 
-    _SENSITIVE_HEADERS = frozenset({"cookie", "authorization", "set-cookie"})
+    _SENSITIVE_HEADERS = frozenset(
+        {"cookie", "authorization", "set-cookie", "check"}
+    )
 
     def log_request(self, r):
         """Log request details, filtering sensitive headers."""

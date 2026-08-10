@@ -27,6 +27,102 @@ async def async_setup_entry(
         ]
     )
 
+    added_wifi_ids: set[str] = set()
+
+    def add_wifi_entities() -> None:
+        """Add newly discovered WLAN APs without duplicating entities."""
+        wifi = (coordinator.data or {}).get("wifi", [])
+        counts: dict[str, int] = {}
+        for ap in wifi:
+            ssid = ap.get("ssid", "")
+            if ssid:
+                counts[ssid] = counts.get(ssid, 0) + 1
+
+        entities: list[ZteWifiSwitch] = []
+        for ap in wifi:
+            ap_id = ap.get("ap_id")
+            ssid = ap.get("ssid", "")
+            if not ap_id or not ssid or ap_id in added_wifi_ids:
+                continue
+            band = ap.get("band", "")
+            name = ssid
+            if counts.get(ssid, 0) > 1 and band:
+                name = f"{ssid} {band}"
+            entities.append(ZteWifiSwitch(coordinator, entry, ap_id, name))
+            added_wifi_ids.add(ap_id)
+
+        if entities:
+            async_add_entities(entities)
+
+    add_wifi_entities()
+    entry.async_on_unload(coordinator.async_add_listener(add_wifi_entities))
+
+
+class ZteWifiSwitch(CoordinatorEntity, SwitchEntity):
+    """Switch controlling one physical WLAN access point."""
+
+    def __init__(
+        self,
+        coordinator: ZteDataCoordinator,
+        entry: ConfigEntry,
+        ap_id: str,
+        name: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._ap_id = ap_id
+        self._attr_name = name
+        self._attr_unique_id = f"{entry.entry_id}_wifi_{ap_id.lower()}"
+        self._attr_icon = "mdi:wifi"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=f"ZTE Router {coordinator.client.host}",
+            manufacturer="ZTE",
+            model=coordinator.client.model,
+        )
+
+    def _current_ap(self) -> dict | None:
+        """Return the latest AP data from the coordinator."""
+        return next(
+            (
+                ap
+                for ap in ((self.coordinator.data or {}).get("wifi", []))
+                if ap.get("ap_id") == self._ap_id
+            ),
+            None,
+        )
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return the router-confirmed AP state."""
+        ap = self._current_ap()
+        return ap.get("enabled") if ap else None
+
+    @property
+    def available(self) -> bool:
+        """Return whether the AP is present and the coordinator is online."""
+        return super().available and self._current_ap() is not None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str]:
+        """Expose non-secret WLAN metadata."""
+        ap = self._current_ap()
+        if not ap:
+            return {}
+        return {
+            "ap_id": ap.get("ap_id", ""),
+            "band": ap.get("band", ""),
+            "radio_id": ap.get("radio_id", ""),
+            "alias": ap.get("alias", ""),
+        }
+
+    async def async_turn_on(self, **kwargs) -> None:
+        """Enable this WLAN AP."""
+        await self.coordinator.async_set_wifi_enabled(self._ap_id, True)
+
+    async def async_turn_off(self, **kwargs) -> None:
+        """Disable this WLAN AP."""
+        await self.coordinator.async_set_wifi_enabled(self._ap_id, False)
+
 
 class ZtePauseSwitch(CoordinatorEntity, SwitchEntity):
     """Switch to pause/resume the tracker."""
