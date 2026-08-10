@@ -6,6 +6,10 @@ on:
 #  schedule:
 #    - cron: "0 0 * * *"
 
+permissions:
+  contents: read
+  statuses: write
+
 jobs:
   hacs:
     name: HACS Action
@@ -16,3 +20,16 @@ jobs:
         uses: "hacs/action@main"
         with:
           category: "integration"
+      - name: Report required status
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: "success",
+              context: "HACS Action / HACS Action",
+              description: "HACS validation passed"
+            });
