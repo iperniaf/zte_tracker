@@ -311,9 +311,19 @@ class zteClient:
                             f"{self.base_url}/",
                             verify=self.verify_ssl,
                             timeout=10,
+                            headers={
+                                "X-Requested-With": None,
+                                "Referer": None,
+                            },
                         )
                     except Exception:
                         pass  # Best-effort reload
+                    self.session.headers.update(
+                        {
+                            "X-Requested-With": "XMLHttpRequest",
+                            "Referer": f"{self.base_url}/",
+                        }
+                    )
             # Check for error messaging.
             if self.login_data.get("lockingTime", 0) == -1:
                 self.statusmsg = f"Router is locked: {self.login_data.get('loginErrMsg', 'Unknown error')}"
