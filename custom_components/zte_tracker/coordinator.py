@@ -367,13 +367,13 @@ class ZteDataCoordinator(DataUpdateCoordinator):
                     )
                     return None, None, None, None
 
-                devices = self.client.get_devices_response()
                 wifi = (
                     self.client.get_wifi_configuration()
                     if isinstance(self.client.paths, dict)
                     and self.client.paths.get("wlan_config_script")
                     else []
                 )
+                devices = self.client.get_devices_response()
                 wanstatus = self.client.get_wan_status()
                 routerdetails = self.client.get_router_details()
 
@@ -455,6 +455,13 @@ class ZteDataCoordinator(DataUpdateCoordinator):
                         _LOGGER.debug("Fresh router login established")
                         self._last_login_at = datetime.now()
 
+                    wifi = (
+                        self.client.get_wifi_configuration()
+                        if isinstance(self.client.paths, dict)
+                        and self.client.paths.get("wlan_config_script")
+                        else []
+                    )
+
                     devices = self.client.get_devices_response()
                     if devices is None:
                         return None, None, None, None, False
@@ -472,12 +479,6 @@ class ZteDataCoordinator(DataUpdateCoordinator):
                         )
                         return None, None, None, None, False
 
-                    wifi = (
-                        self.client.get_wifi_configuration()
-                        if isinstance(self.client.paths, dict)
-                        and self.client.paths.get("wlan_config_script")
-                        else []
-                    )
                     wanstatus = self.client.get_wan_status()
                     routerdetails = self.client.get_router_details()
 
